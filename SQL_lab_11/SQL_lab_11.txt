@@ -1,0 +1,331 @@
+﻿/*
+ЛР №11
+Проектування БД за індивідуальними завданнями
+
+Виконати системний аналіз вибраної вами предметної області:
+1) Зробити опис предметної області – області автоматизації:
+    a) користувачі та їх вимоги до створюваної автоматизованої системи
+    b) документи, що циркулюють в предметній області,
+    c) правила за якими вони формуються
+    d) описати обмеження на інформацію, що повинна зберігатись в БД
+2) Сформувати словник БД .
+3) Визначити сутності предметної області, їх атрибути .
+4) Визначити зв'язки між сутностями предметної області. Побудувати інфологічну модель.
+5) Побудувати таблиці опису та зв’язки між ними. Зробити запити.
+*/
+
+
+/*
+1) Опис предметної області – області автоматизації:
+    a) Користувачі та їх вимоги до створюваної автоматизованої системи:
+        1. Адміністратор фотоцентру: може додавати, редагувати і видаляти дані про клієнтів, фотосесії, фотографії, пакети послуг. Має доступ до всіх функцій системи.
+        2. Фотограф: може переглядати інформацію про свої фотосесії, додавати фотографії до фотосесій.
+        3. Клієнт: може переглядати свої фотосесії та фотографії.
+
+    b) Документи, що циркулюють в предметній області:
+        1. Заявки на фотосесії від клієнтів.
+        2. Договори про надання послуг фотоцентром.
+        3. Фотографії, отримані в результаті фотосесій.
+
+    c) Правила за якими вони формуються:
+        1. Заявки на фотосесії формуються клієнтами. для цього, клієнт вказує дату, час, місце проведення фотосесії та вибирає пакет послуг.
+        2. Договори про надання послуг укладаються між фотоцентром і клієнтами на основі затверджених пакетів послуг та вартості.
+        3. Фотографії зберігаються після проведення фотосесії і можуть містити опис та інші атрибути.
+
+    d) Опис обмежень на інформацію, що повинна зберігатись в БД:
+        1. Кожен клієнт повинен мати унікальний ідентифікатор.
+        2. Фотосесії повинні мати посилання на клієнта, який їх замовив.
+        3. Фотографії повинні бути пов'язані з певною фотосесією.
+        4. Обмеження на кількість фотографій в одній фотосесії - не більше 1000.
+        5. Дата фотосесії повинна бути майбутньою.
+
+2) Сформований словник БД:
+    clients (клієнти)
+        id (ідентифікатор)
+        first_name (ім'я)
+        last_name (прізвище)
+        email (електронна пошта)
+        phone_number (номер телефону)
+        address (адреса)
+
+    photoshoots (фотосесії)
+        id (ідентифікатор)
+        client_id (ідентифікатор клієнта)
+        date (дата)
+        time (час)
+        location (місце)
+        photographer (фотограф)
+
+    photos (фотографії)
+        id (ідентифікатор)
+        photoshoot_id (ідентифікатор фотосесії)
+        filename (ім'я файлу)
+        description (опис)
+
+    service_packages (пакети послуг)
+        id (ідентифікатор)
+        name (назва)
+        price (ціна)
+
+    photoshoot_services (послуги фотосесії)
+        photoshoot_id (ідентифікатор фотосесії)
+        package_id (ідентифікатор пакету послуг)
+
+3) Сутності предметної області та їх атрибути:
+
+    clients (клієнти)
+        id (ідентифікатор)
+        first_name (ім'я)
+        last_name (прізвище)
+        email (електронна пошта)
+        phone_number (номер телефону)
+        address (адреса)
+    
+    photoshoots (фотосесії)
+        id (ідентифікатор)
+        client_id (ідентифікатор клієнта)
+        date (дата)
+        time (час)
+        location (місце)
+        photographer (фотограф)
+    
+    photos (фотографії)
+        id (ідентифікатор)
+        photoshoot_id (ідентифікатор фотосесії)
+        filename (ім'я файлу)
+        description (опис)
+    
+    service_packages (пакети послуг)
+        id (ідентифікатор)
+        name (назва)
+        price (ціна)
+
+4) Зв'язки між сутностями предметної області та інфологічна модель:
+                    Client (id) --- (1:N) --- Photoshoot(client_id)
+                Photoshoot (id) --- (1:N) --- Photo(photoshoot_id )
+                Photoshoot (id) --- (N:M) --- Photoshoot_Services(photoshoot_id )
+Photoshoot_Services(package_id) --- (N:M) --- Service_Package(id)
+*/
+
+
+#5) Таблиці опису та зв’язки між ними.
+
+DROP DATABASE IF EXISTS photostudio;
+
+CREATE DATABASE photostudio;
+
+USE photostudio;
+
+# Створення таблиці "Клієнти"
+CREATE TABLE `clients` (
+  `id` INT AUTO_INCREMENT,
+  `first_name` VARCHAR(50) NOT NULL,
+  `last_name` VARCHAR(50) NOT NULL,
+  `email` VARCHAR(100) NOT NULL,
+  `phone_number` VARCHAR(20),
+  `address` VARCHAR(100),
+
+  PRIMARY KEY(`id`)
+);
+
+# Створення таблиці "Фотосесії"
+CREATE TABLE `photoshoots` (
+  `id` INT AUTO_INCREMENT,
+  `client_id` INT,
+  `date` DATE NOT NULL,
+  `time` TIME NOT NULL,
+  `location` VARCHAR(100),
+  `photographer` VARCHAR(50),
+
+  PRIMARY KEY(`id`),
+  FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`)
+);
+
+# Створення таблиці "Фотографії"
+CREATE TABLE `photos` (
+  `id` INT AUTO_INCREMENT,
+  `photoshoot_id` INT,
+  `filename` VARCHAR(100) NOT NULL,
+  `description` VARCHAR(200),
+
+  PRIMARY KEY(`id`),
+  FOREIGN KEY (`photoshoot_id`) REFERENCES `photoshoots`(`id`)
+);
+
+# Створення таблиці "Пакети послуг"
+CREATE TABLE `service_packages` (
+  `id` INT AUTO_INCREMENT,
+  `name` VARCHAR(50) NOT NULL,
+  `price` DECIMAL(10,2) NOT NULL,
+
+  PRIMARY KEY(`id`)
+);
+
+# Створення зв'язуючої таблиці "Послуги фотосесії"
+CREATE TABLE `photoshoot_services` (
+  `photoshoot_id` INT,
+  `package_id` INT,
+
+
+  PRIMARY KEY (`photoshoot_id`, `package_id`),
+  FOREIGN KEY (`photoshoot_id`) REFERENCES `photoshoots`(`id`),
+  FOREIGN KEY (`package_id`) REFERENCES `service_packages`(`id`)
+);
+
+
+INSERT INTO `clients` (`first_name`, `last_name`, `email`, `phone_number`, `address`)
+VALUES
+  ('Name_1', 'Sname_1', 'name_sname_1@photostudio.com', '+38(099)0000001', 'Address_1'),
+  ('Name_2', 'Sname_2', 'name_sname_2@photostudio.com', '+38(099)0000002', 'Address_2'),
+  ('Name_3', 'Sname_3', 'name_sname_3@photostudio.com', '+38(099)0000003', 'Address_3'),
+  ('Name_4', 'Sname_4', 'name_sname_4@photostudio.com', '+38(099)0000004', 'Address_4'),
+  ('Name_5', 'Sname_5', 'name_sname_5@photostudio.com', '+38(099)0000005', 'Address_5');
+
+
+INSERT INTO `photoshoots` (`client_id`, `date`, `time`, `location`, `photographer`)
+VALUES
+  (1, '2023-06-01', '10:00:00', 'Location_1', 'Photographer_1'),
+  (2, '2023-06-02', '15:30:00', 'Location_2', 'Photographer_2'),
+  (3, '2023-06-03', '14:00:00', 'Location_3', 'Photographer_3'),
+  (4, '2023-06-04', '12:00:00', 'Location_1', 'Photographer_4'),
+  (5, '2023-06-05', '11:30:00', 'Location_2', 'Photographer_4');
+
+
+INSERT INTO `photos` (`photoshoot_id`, `filename`, `description`)
+VALUES
+  (1, 'photo1.jpg',  'Description_1'),
+  (1, 'photo2.jpg',  'Description_2'),
+  (2, 'photo3.jpeg', 'Description_3'),
+  (3, 'photo4.jpeg', 'Description_4'),
+  (4, 'photo5.png',  'Description_5'),
+  (5, 'photo6.png',  'Description_6');
+
+
+INSERT INTO `service_packages` (`name`, `price`)
+VALUES
+  ('Standard package of services', 1000.00),
+  ('An extended package of services', 1500.00),
+  ('VIP service package', 2500.00);
+
+
+INSERT INTO `photoshoot_services` (`photoshoot_id`, `package_id`)
+VALUES
+  (1, 1),
+  (2, 2),
+  (3, 3),
+  (4, 1),
+  (5, 2);
+  
+  
+
+DROP TRIGGER IF EXISTS validate_future_date;
+
+DELIMITER //
+CREATE TRIGGER validate_future_date
+BEFORE INSERT ON `photoshoots` FOR EACH ROW
+BEGIN
+    IF NEW.`date` < CURDATE() THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Дата фотосесії повинна бути майбутньою.';
+    END IF;
+END //
+DELIMITER ;
+
+
+# Тригер для перевірки, щоб кількість фотографій в фотосесії не перевищувала певного обмеження
+DROP TRIGGER IF EXISTS validate_photos_limit;
+
+DELIMITER //
+CREATE TRIGGER validate_photos_limit
+BEFORE INSERT ON `photos` FOR EACH ROW
+BEGIN
+    DECLARE photos_count INT;
+    
+    SELECT COUNT(*) INTO photos_count
+    FROM `photos`
+    WHERE `photoshoot_id` = NEW.`photoshoot_id`;
+    
+    IF photos_count >= 1000 THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Перевищено ліміт фотографій для даної фотосесії.';
+    END IF;
+END //
+DELIMITER ;
+
+
+# Процедура для отримання інформації про фотосесії клієнта за його ідентифікатором
+DROP PROCEDURE IF EXISTS GetClientPhotoshoots;
+
+DELIMITER //
+CREATE PROCEDURE GetClientPhotoshoots(IN clientID INT)
+BEGIN
+    SELECT p.`id`, p.`date`, p.`time`, p.`location`, p.`photographer`
+    FROM `photoshoots` p
+    WHERE p.`client_id` = clientID;
+END //
+DELIMITER ;
+
+# Процедура для видалення клієнта разом з його фотосесіями та фотографіями
+DROP PROCEDURE IF EXISTS DeleteClient;
+
+DELIMITER //
+CREATE PROCEDURE DeleteClient(IN clientID INT)
+BEGIN
+    DELETE FROM `photos` WHERE `photoshoot_id` IN (SELECT `id` FROM `photoshoots` WHERE `client_id` = clientID);
+    
+    DELETE FROM `photoshoot_services`
+	WHERE `photoshoot_id` IN (SELECT `id` FROM `photoshoots` WHERE `client_id` = 1);
+    
+    DELETE FROM `photoshoots` WHERE `client_id` = clientID;
+    
+    DELETE FROM `clients` WHERE `id` = clientID;
+END //
+DELIMITER ;
+
+# Функція для підрахунку кількості фотосесій, проведених певним фотографом
+DROP FUNCTION IF EXISTS CountPhotoshootsByPhotographer;
+
+DELIMITER //
+CREATE FUNCTION CountPhotoshootsByPhotographer(photographerName VARCHAR(50))
+RETURNS INT
+BEGIN
+    DECLARE `count` INT;
+    
+    SELECT COUNT(*) INTO `count`
+    FROM `photoshoots`
+    WHERE `photographer` = photographerName;
+    
+    RETURN `count`;
+END //
+DELIMITER ;
+
+# Функція для отримання загальної вартості всіх фотосесій клієнта за його ідентифікатором
+DROP FUNCTION IF EXISTS GetTotalCostByClientID;
+
+DELIMITER //
+CREATE FUNCTION GetTotalCostByClientID(clientID INT)
+RETURNS DECIMAL(10,2)
+BEGIN
+    DECLARE totalCost DECIMAL(10,2);
+    
+    SELECT SUM(sp.price) INTO totalCost
+    FROM `photoshoots` ps
+    INNER JOIN `photoshoot_services` pss ON ps.id = pss.photoshoot_id
+    INNER JOIN `service_packages` sp ON pss.package_id = sp.id
+    WHERE ps.`client_id` = clientID;
+    
+    RETURN totalCost;
+END //
+DELIMITER ;
+
+# Отримання інформації про фотосесії клієнта за його ідентифікатором
+CALL GetClientPhotoshoots(1); 
+
+# Видалення клієнта разом з його фотосесіями та фотографіями з бази даних
+CALL DeleteClient(1); 
+
+# Підрахунок кількості фотосесій, проведених певним фотографом.
+SELECT CountPhotoshootsByPhotographer('Photographer_4'); 
+
+# Отримання загальної вартості всіх фотосесій клієнта за його ідентифікатором
+SELECT GetTotalCostByClientID(2); 

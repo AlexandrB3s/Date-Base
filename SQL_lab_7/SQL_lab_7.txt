@@ -1,0 +1,334 @@
+﻿/*
+ЛР №7
+Проектування і перевірка збережених процедур (stored procedure): без параметрів, з вхідними параметрами, з вхідними параметрами за
+замовчуванням, з вихідними параметрами.
+
+1. Вивести значення наступних колонок: назва книги, ціна, назва видавництва, формат.
+2. Вивести значення наступних колонок: тема, категорія, назва книги, назва видавництва. Фільтр по темам і категоріям.
+3. Вивести книги видавництва 'BHV', видані після 2000 р
+4. Вивести загальну кількість сторінок по кожній назві категорії. Фільтр по спадаючій / зростанню кількості сторінок.
+5. Вивести середню вартість книг по темі 'Використання ПК' і категорії 'Linux'.
+6. Вивести всі дані універсального відношення.
+7. Вивести пари книг, що мають однакову кількість сторінок.
+8. Вивести тріади книг, що мають однакову ціну.
+9. Вивести всі книги категорії 'C ++'.
+10. Вивести список видавництв, у яких розмір книг перевищує 400 сторінок.
+11. Вивести список категорій за якими більше 3-х книг.
+12. Вивести список книг видавництва 'BHV', якщо в списку є хоча б одна книга цього видавництва.
+13. Вивести список книг видавництва 'BHV', якщо в списку немає жодної книги цього видавництва.
+14. Вивести відсортоване загальний список назв тем і категорій.
+15. Вивести відсортований в зворотному порядку загальний список перших слів назв книг і категорій що не повторюються
+*/
+
+#1. Вивести значення наступних колонок: назва книги, ціна, назва видавництва, формат.
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_1 //
+
+CREATE PROCEDURE Procedure_Get_Info_1()
+BEGIN
+	SELECT
+		`book`.`name` AS `name_book`, 
+		`book`.`price` AS `price_book`,
+		`publishers`.`name` AS `name_publisher`,
+		`book`.`format` AS `format_book`
+	FROM `book`
+	INNER JOIN `publishers` ON `book`.`id_publisher` = `publishers`.`id_publisher`;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_1();
+
+#2. Вивести значення наступних колонок: тема, категорія, назва книги, назва видавництва. Фільтр по темам і категоріям.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_2 //
+
+CREATE PROCEDURE Procedure_Get_Info_2()
+BEGIN
+	SELECT
+		`topics`.`name` AS `name_subject`,
+    	`categories`.`name` AS `name_category`,
+	    `book`.`name` AS `name_book`,
+   	 	`publishers`.`name` AS `name_publisher`
+	FROM `book`
+	JOIN `topics` ON `book`.`id_topic` = `topics`.`id_topic`
+	JOIN `categories` ON `book`.`id_category` = `categories`.`id_category`
+	JOIN `publishers` ON `book`.`id_publisher` = `publishers`.`id_publisher`
+	ORDER BY `topics`.`name`, `categories`.`name`;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_2();
+
+
+#3. Вивести книги видавництва 'BHV', видані після 2000 р
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_3 //
+
+CREATE PROCEDURE Procedure_Get_Info_3(IN _name_publisher VARCHAR(50), IN _book_year DATE)
+BEGIN
+	SET @_name_publisher = IFNULL(_name_publisher, 'BHV');
+    SET @_book_year = IFNULL(_book_year, 2000);
+    
+	SELECT
+		`book`.`name` AS `name_book`,
+   	 	`book`.`date` AS `date_book`,
+    	`publishers`.`name` AS `name_publisher`
+	FROM `book`
+	JOIN `publishers` ON `book`.`id_publisher` = `publishers`.`id_publisher`
+	WHERE `publishers`.`name` = @_name_publisher AND YEAR(`book`.`date`) > @_book_year;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_3('BHV', '2010-10-10');
+
+
+#4. Вивести загальну кількість сторінок по кожній назві категорії. Фільтр по спадаючій / зростанню кількості сторінок.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_4 //
+
+CREATE PROCEDURE Procedure_Get_Info_4(IN _filter  VARCHAR(4)) 
+BEGIN
+	SET @_filter = IFNULL(_filter, 'ASC');
+	IF @_filter <> 'ASC' AND @_filter <> 'DESC' THEN
+        SIGNAL SQLSTATE '22001' SET MESSAGE_TEXT = 'Invalid sort order. change input to ASC, DESC, or NULL.';
+    END IF;
+
+	SELECT
+		`categories`.`name` AS `name_category`,
+    	SUM(`book`.`pages`) AS `SUM_pages_book`
+	FROM `book`
+	JOIN `categories` ON `book`.`id_category` = `categories`.`id_category`
+	GROUP BY `book`.`id_category`
+    ORDER BY 	
+    	CASE WHEN @_filter = 'ASC'  THEN SUM(`book`.`pages`) END ASC,
+    	CASE WHEN @_filter = 'DESC' THEN SUM(`book`.`pages`) END DESC;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_4('DESC');
+CALL Procedure_Get_Info_4('ASC');
+
+
+#5. Вивести середню вартість книг по темі 'Використання ПК' і категорії 'Linux'.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_5 //
+
+CREATE PROCEDURE Procedure_Get_Info_5(IN _name_subject VARCHAR(255), IN _name_category VARCHAR(50)) 
+BEGIN
+SET @_name_subject = IFNULL(_name_subject, 'Використання ПК');
+SET @_name_category = IFNULL(_name_category, 'Linux');
+
+SELECT
+	AVG(`book`.`price`) AS `AVG_price_book`,
+    `topics`.`name` AS `name_publisher`,
+    `categories`.`name` AS `name_category`
+FROM `book`
+JOIN `topics` ON `book`.`id_topic` = `topics`.`id_topic`
+JOIN `categories` ON `book`.`id_category` = `categories`.`id_category`
+WHERE `topics`.`name` = @_name_subject AND `categories`.`name` = @_name_category;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_5('Використання ПК', 'Linux');
+
+
+#6. Вивести всі дані універсального відношення.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_6 //
+
+CREATE PROCEDURE Procedure_Get_Info_6() 
+BEGIN
+    SELECT *
+    FROM `book`
+    INNER JOIN  `publishers` ON `book`.`id_publisher` = `publishers`.`id_publisher`
+    INNER JOIN `topics` ON `book`.`id_topic` = `topics`.`id_topic`
+    INNER JOIN `categories` ON `book`.`id_category` = `categories`.`id_category`;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_6();
+
+
+#7. Вивести пари книг, що мають однакову кількість сторінок.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_7 //
+
+CREATE PROCEDURE Procedure_Get_Info_7()
+BEGIN
+	SELECT
+    	`b1`.`name` AS `book1`,
+        `b2`.`name` AS `book2`,
+        `b1`.`pages`
+	FROM `book` AS `b1`
+	JOIN `book` AS `b2` ON `b1`.`pages` = `b2`.`pages` AND `b1`.`id_book` < `b2`.`id_book`
+	ORDER BY `b1`.`pages`;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_7();
+
+
+#8. Вивести тріади книг, що мають однакову ціну.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_8 //
+
+CREATE PROCEDURE Procedure_Get_Info_8()
+BEGIN
+	SELECT
+    	`b1`.`name` AS `book1`,
+        `b2`.`name` AS `book2`,
+        `b3`.`name` AS `book3`,
+        `b1`.`price`
+	FROM `book` AS `b1`
+	JOIN `book` AS `b2` ON `b1`.`price` = `b2`.`price` AND `b1`.`id_book` < `b2`.`id_book`
+	JOIN `book` AS `b3` ON `b1`.`price` = `b3`.`price` AND `b2`.`price` = `b3`.`price` AND `b1`.`id_book` > `b3`.`id_book`
+	ORDER BY `b1`.`price`;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_8();
+
+
+#9. Вивести всі книги категорії 'C ++'.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_8 //
+
+CREATE PROCEDURE Procedure_Get_Info_8(IN _name_category VARCHAR(50)) 
+BEGIN
+    SET @_name_category = IFNULL(_name_category, 'C++');
+    
+    SELECT 
+        `b`.`name` AS `name_book`
+    FROM `book` AS `b`
+    WHERE `b`.`id_category` = (
+        	SELECT `c`.`id_category`
+        	FROM `categories` AS `c`
+        	WHERE `c`.`name` REGEXP @_name_category
+    	);
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_8('C++');
+
+
+#10. Вивести список видавництв, у яких розмір книг перевищує 400 сторінок.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_10 //
+
+CREATE PROCEDURE Procedure_Get_Info_10(IN `pages` INT UNSIGNED) 
+BEGIN
+	SET @`pages` = IFNULL(`pages`, 400);
+    
+	SELECT 
+		`p`.`name` AS `name_publisher`
+	FROM `publishers` AS `p`
+	WHERE EXISTS (
+    		SELECT `b`.`id_publisher`
+    		FROM `book` AS `b`
+    		WHERE `p`.`id_publisher` = `b`.`id_publisher` AND `b`.`pages` > @`pages`
+		);
+    END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_10(400);
+
+
+#11. Вивести список категорій за якими більше 3-х книг.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_11 //
+
+CREATE PROCEDURE Procedure_Get_Info_11(IN _number_of_books INT UNSIGNED) 
+BEGIN
+	SET @_number_of_books = IFNULL(_number_of_books, 3);
+SELECT 
+	`c`.`name` AS `name_category`
+FROM `categories` AS `c`
+WHERE (
+    	SELECT COUNT(`b`.`id_category`)
+    	FROM `book` AS `b`
+    	WHERE `c`.`id_category` = `b`.`id_category`
+	) > @_number_of_books;
+    END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_11(3);
+
+
+#12. Вивести список книг видавництва 'BHV', якщо в списку є хоча б одна книга цього видавництва.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_12 //
+
+CREATE PROCEDURE Procedure_Get_Info_12(IN _name_publisher VARCHAR(50)) 
+BEGIN
+	SET @_name_publisher = IFNULL(_name_publisher, 'BHV');
+
+SELECT
+	`b`.`name` AS `name_book`
+FROM `book` AS `b`
+WHERE EXISTS(
+    	SELECT *
+    	FROM `publishers` AS `p`
+    	WHERE `p`.`name` REGEXP @_name_publisher AND
+    		  `p`.`id_publisher` = `b`.`id_publisher`
+	);
+    END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_12('BHV');
+
+
+#13. Вивести список книг видавництва 'BHV', якщо в списку немає жодної книги цього видавництва.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_13 //
+
+CREATE PROCEDURE Procedure_Get_Info_13(IN _name_publisher VARCHAR(50)) 
+BEGIN
+	SET @_name_publisher = IFNULL(_name_publisher, 'BHV');
+
+		SELECT 
+		`b1`.`name` AS `name_book`
+	FROM `book` AS `b1`
+	WHERE NOT EXISTS(
+    		SELECT * 
+    		FROM `book` AS `b2`
+    		WHERE `b2`.`id_publisher` = (
+            		SELECT `id_publisher`
+            		FROM `publishers`
+            		WHERE `name` REGEXP @_name_publisher
+        		) AND `b1`.`id_publisher` <> `b2`.`id_publisher`
+		);
+    END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_13('BHV');
+
+
+#14. Вивести відсортоване загальний список назв тем і категорій.
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_14 //
+
+CREATE PROCEDURE Procedure_Get_Info_14() 
+BEGIN
+	(SELECT * FROM `topics`)
+	UNION (SELECT * FROM `categories`)
+	ORDER BY `name`;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_14();
+
+
+#15. Вивести відсортований в зворотному порядку загальний список перших слів назв книг і категорій що не повторюються
+DELIMITER //
+DROP PROCEDURE IF EXISTS Procedure_Get_Info_15 //
+
+CREATE PROCEDURE Procedure_Get_Info_15() 
+BEGIN
+	(SELECT DISTINCT SUBSTRING_INDEX(`b`.`name`, ' ', 1) AS `first_word_name` FROM `book` AS `b`)
+	UNION (SELECT DISTINCT SUBSTRING_INDEX(`c`.`name`, ' ', 1) AS `first_word_name` FROM `categories` AS `c`)
+	ORDER BY `first_word_name` DESC;
+END //
+DELIMITER ;
+
+CALL Procedure_Get_Info_15();

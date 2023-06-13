@@ -1,0 +1,194 @@
+﻿/*
+ЛР №9
+Проектування користувальницьких функцій (user defined function). Робота з SQL курсором (cursor).
+
+1. Розробити та перевірити скалярну (scalar) функцію, що повертає загальну вартість книг виданих в певному році.
+2. Розробити і перевірити табличну (inline) функцію, яка повертає список книг виданих в певному році.
+3. Розробити і перевірити функцію типу multi-statement, яка буде:
+    a. приймати в якості вхідного параметра рядок, що містить список назв видавництв, розділених символом ‘;’;
+    b. виділяти з цього рядка назву видавництва;
+    c. формувати нумерований список назв видавництв.
+4. Виконати набір операцій по роботі з SQL курсором: оголосити курсор;
+    a. використовувати змінну для оголошення курсору;
+    b. відкрити курсор;
+    c. переприсвоїти курсор іншої змінної;
+    d. виконати вибірку даних з курсору;
+    e. закрити курсор;
+5. звільнити курсор. Розробити курсор для виводу списка книг виданих у визначеному році.
+*/
+
+#1. Розробити та перевірити скалярну (scalar) функцію, що повертає загальну вартість книг виданих в певному році.
+DELIMITER //
+DROP FUNCTION IF EXISTS Calculate_Total_Price_By_Year_function_1//
+
+CREATE FUNCTION Calculate_Total_Price_By_Year_function_1(`year` INT) RETURNS DECIMAL(10, 2)
+BEGIN
+    DECLARE `total_value` DECIMAL(10, 2);
+    
+    SELECT SUM(`price`) INTO `total_value`
+    FROM `book`
+        WHERE YEAR(`date`) = `year`;
+    
+    SET `total_value` = IFNULL(`total_value`, 0);
+    
+    RETURN `total_value`;
+END //
+DELIMITER ;
+
+SELECT Calculate_Total_Price_By_Year_function_1(2000) AS total_value;
+
+
+#2. Розробити і перевірити табличну (inline) функцію, яка повертає список книг виданих в певному році.
+# написано на SQL Server, бо inline функції в MySQL не підтримуються.
+/*
+DROP FUNCTION IF EXISTS Get_Books_By_Year_function_2;
+
+CREATE FUNCTION Get_Books_By_Year_function_2(`year` INT)
+RETURNS TABLE READS SQL DATA
+AS RETURN (
+    SELECT `id_book`, `code`, `name`, `price`, `pages`
+    FROM `book`
+        WHERE YEAR(`date`) = `year` );
+
+
+SELECT * FROM Get_Books_By_Year_function_2(2000);*/
+
+
+/*3. Розробити і перевірити функцію типу multi-statement, яка буде:
+    a. приймати в якості вхідного параметра рядок, що містить список назв видавництв, розділених символом ‘;’;
+    b. виділяти з цього рядка назву видавництва;
+    c. формувати нумерований список назв видавництв.*/
+DELIMITER //
+DROP FUNCTION IF EXISTS Generate_Publisher_List_function_3//
+
+CREATE FUNCTION Generate_Publisher_List_function_3(`list_publisher` TEXT) RETURNS TEXT
+BEGIN
+    DECLARE `result` TEXT;
+    DECLARE `name_publisher` TEXT;
+    DECLARE `counter_publisher` INT DEFAULT 0;
+    SET `result` = '';
+    
+    WHILE `list_publisher` != '' DO
+        SET `counter_publisher` = `counter_publisher` + 1;
+        
+        SET `name_publisher` = SUBSTRING_INDEX(`list_publisher`, ';', 1);
+        SET `list_publisher` = SUBSTRING(`list_publisher`, LENGTH(`name_publisher`) + 2);
+        SET `result` = CONCAT(`result`, `counter_publisher`, '. ', `name_publisher`, '\n');
+    END WHILE;
+    RETURN `result`;
+END //
+
+DELIMITER ;  
+
+SELECT Generate_Publisher_List_function_3('Publisher_1;Publisher_2;Publisher_3') AS PublisherList;
+
+
+/*4. Виконати набір операцій по роботі з SQL курсором: оголосити курсор;
+    a. використовувати змінну для оголошення курсору;
+    b. відкрити курсор;
+    c. переприсвоїти курсор іншої змінної;
+    d. виконати вибірку даних з курсору;
+    e. закрити курсор;*/
+    
+USE library;
+
+DELIMITER //
+DROP PROCEDURE IF EXISTS My_Cursor_procedure_4//
+
+CREATE PROCEDURE My_Cursor_procedure_4(IN `book_year` INT, INOUT `text_data` TEXT)
+BEGIN
+    DECLARE `counter` INTEGER DEFAULT 0;
+    
+    DECLARE `_id` INT DEFAULT 0;
+    DECLARE `_code` INT UNSIGNED DEFAULT 0;
+    DECLARE `_name` VARCHAR(100) DEFAULT '';
+    DECLARE `_price` DECIMAL(8,2) DEFAULT 0;
+    DECLARE `_pages` INT UNSIGNED DEFAULT 0;
+    
+    # Оголошення курсора
+    DECLARE `cursor` CURSOR FOR
+    SELECT `id_book`, `code`, `name`, `price`, `pages`
+        FROM book
+        WHERE YEAR(`date`) = `book_year`;
+
+    DECLARE CONTINUE HANDLER
+    FOR NOT FOUND SET `counter` = 1;
+    # Відкриття курсора
+    OPEN `cursor`;
+
+    # Виконання вибірки даних з курсору
+    get_datas: LOOP
+       
+        FETCH NEXT FROM `cursor` INTO `_id`, `_code`, `_name`, `_price`, `_pages`;
+        IF `counter` = 1 THEN 
+            LEAVE get_datas;
+        END IF;
+        
+        SET `text_data` = CONCAT(`text_data`,
+            'id_book: ', IFNULL(CAST(`_id` AS CHAR), 'NULL'), '\n',
+            'code: ',    IFNULL(CAST(`_code` AS CHAR), 'NULL'), '\n',
+            'name: ',    IFNULL(`_name`, 'NULL'), '\n',
+            'price: ',   IFNULL(CAST(`_price` AS CHAR), 'NULL'), '\n',
+            'pages: ',   IFNULL(CAST(`_pages` AS CHAR), 'NULL'), '\n'
+            );       
+    END LOOP get_datas;
+    
+    # Закриття курсора
+    CLOSE `cursor`;
+
+END //
+DELIMITER ;
+
+SET @text_data = "";
+CALL My_Cursor_procedure_4(2000, @text_data);
+SELECT @text_data;
+
+
+#5. звільнити курсор. Розробити курсор для виводу списка книг виданих у визначеному році.
+#DEALLOCATE `cur`;
+
+USE library; 
+
+DELIMITER //
+DROP FUNCTION IF EXISTS Print_Books_By_Year_function_5//
+
+CREATE FUNCTION Print_Books_By_Year_function_5(`book_year` INT) RETURNS TEXT
+BEGIN
+    DECLARE `counter` INTEGER DEFAULT 0;
+    DECLARE `text_data` TEXT DEFAULT '';
+    
+    DECLARE `book_name`  VARCHAR(100);
+    
+    DECLARE `cur` CURSOR FOR
+    SELECT `name`
+        FROM `book`
+        WHERE YEAR(`date`) = `book_year`;
+
+    DECLARE CONTINUE HANDLER
+    FOR NOT FOUND SET `counter` = 1;
+    
+    OPEN `cur`;
+
+    
+    get_datas: LOOP
+    
+        FETCH NEXT FROM `cur` INTO `book_name`; 
+        IF `counter` = 1 THEN
+            LEAVE get_datas;
+        END IF;
+
+        SET `text_data` = CONCAT(`text_data`, IFNULL(`book_name`, 'NULL'),'|');       
+    END LOOP get_datas;
+    
+       SET `text_data` = LEFT(`text_data`, LENGTH(`text_data`) - 1);
+    
+    
+    CLOSE `cur`;
+    #DEALLOCATE `cur`;
+
+    RETURN `text_data`;
+END //
+
+DELIMITER ;
+
+SELECT Print_Books_By_Year_function_5(2000);
